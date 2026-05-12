@@ -68,7 +68,8 @@
 
         <div id="page-quiz" class="page">
             <div class="progress">問題 <span id="currentNum">0</span> / <span id="totalNum">0</span></div>
-            <div id="qJapanese" class="q-text"></div>
+            <div id="qJapanese" class="q-text">  <p>文章、固有名詞以外は小文字から始めてください</p>
+            <p>特別な指示がない場合は名詞は単数形、動詞は原形で回答してください</p></div>
             <input type="text" id="userAnswer" placeholder="英語を入力してEnter" autocomplete="off" onkeypress="if(event.key==='Enter') checkAnswer()">
             <button onclick="checkAnswer()">回答する</button>
             <div id="feedback"></div>
