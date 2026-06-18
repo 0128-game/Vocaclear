@@ -30,23 +30,26 @@
         .hidden-col { visibility: hidden; }
         .clickable { cursor: pointer; user-select: none; }
 
-        /* 📻 モーダル内の範囲選択用スタイル */
-        .mode-select-box { background: #f1f5f9; padding: 12px; border-radius: 10px; margin-bottom: 15px; text-align: left; }
-        .mode-select-box label { display: block; margin: 8px 0; cursor: pointer; font-weight: bold; font-size: 0.95rem; }
-        .mode-select-box input[type="radio"] { margin-right: 8px; transform: scale(1.1); vertical-align: middle; }
+        /* 📻 モーダル・オプションエリア用のスタイル */
+        .option-box { background: #f1f5f9; padding: 15px; border-radius: 10px; margin-bottom: 15px; text-align: left; }
+        .option-box p { margin: 0 0 8px 0; font-weight: bold; font-size: 0.9rem; color: #475569; }
+        .option-box label { display: inline-block; margin: 4px 12px 4px 0; cursor: pointer; font-size: 0.9rem; }
+        .option-box input[type="radio"] { margin-right: 5px; transform: scale(1.1); vertical-align: middle; }
 
-        /* 🖨️ 印刷用CSS設定 */
+        /* 🖨️ 印刷用基本CSS設定 */
         @media print {
-            body { background: white; color: black; display: block; min-height: auto; }
+            /* 💡 見出しを常に自動で消すための余白・ページ設定 */
+            @page { margin: 0mm; }
+            body { background: white; color: black; display: block; min-height: auto; margin: 0mm !important; padding: 15mm !important; }
+            
             .container { width: 100%; max-width: 100%; padding: 0; box-shadow: none; background: transparent; }
             .page { display: none !important; }
             .page#page-list { display: block !important; }
-            .page#page-list h2, .page#page-list p, .page#page-list div:last-of-type, .page#page-list p:last-of-type { display: none !important; }
+            .page#page-list h2, .page#page-list > p, .page#page-list div:last-of-type { display: none !important; }
             .scroll-area { max-height: none !important; overflow: visible !important; border: none !important; margin: 0 !important; }
             table { width: 100%; border: 1px solid #000; border-collapse: collapse; }
-            th, td { border: 1px solid #aaa; padding: 10px; font-size: 1.2rem; color: #000 !important; }
+            th, td { border: 1px solid #aaa; padding: 10px; font-size: 1.2rem; color: #000; }
             
-            /* ⚠️ 印刷時：間違えた問題を太枠＋薄い赤背景で強調 */
             .wrong-word { 
                 background-color: #ffebee !important; 
                 -webkit-print-color-adjust: exact; 
@@ -56,12 +59,18 @@
                 border: 2px solid #cc0000 !important;
                 font-weight: bold;
             }
-            /* ⭐ 印刷時のみ、間違えた単語（.wrong-word）の最初のマス（td）の先頭に★を追加 */
             .wrong-word td:first-child::before {
                 content: "★ ";
                 color: #cc0000;
             }
-            .hidden-col { visibility: hidden !important; }
+
+            /* 🖨️ 印刷パターン制御用の動的クラス（印刷時に反映） */
+            body.print-hide-en .col-en { visibility: hidden !important; }
+            body.print-hide-jp .col-jp { visibility: hidden !important; }
+            body.print-red-en .col-en, body.print-red-en .wrong-word .col-en { color: #ff0000 !important; }
+            body.print-red-jp .col-jp, body.print-red-jp .wrong-word .col-jp { color: #ff0000 !important; }
+            
+            .print-control-area { display: none !important; }
         }
     </style>
 </head>
@@ -93,14 +102,32 @@
                     <tbody id="wordList"></tbody>
                 </table>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+            
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;" class="print-control-area">
                 <div style="display: flex; gap: 10px;">
                     <button onclick="startQuiz('practice')" style="background: #64748b;">練習モード</button>
                     <button onclick="startQuiz('exam')">本番モード</button>
                 </div>
-                <button onclick="window.print()" style="background: #0ea5e9;">この表示でプリント印刷</button>
+                
+                <div class="option-box" style="margin-top: 10px;">
+                    <p>🖨️ プリント印刷の設定</p>
+                    <div style="margin-bottom: 10px;">
+                        <label><input type="radio" name="printPattern" value="both" checked onchange="updatePrintOptions()"> 英語と日本語（両方）</label>
+                        <label><input type="radio" name="printPattern" value="enOnly" onchange="updatePrintOptions()"> 英語のみ</label>
+                        <label><input type="radio" name="printPattern" value="jpOnly" onchange="updatePrintOptions()"> 日本語のみ</label>
+                    </div>
+                    
+                    <div id="redSheetOptions">
+                        <p style="font-size: 0.85rem; color: #64748b; margin-top: 5px;">📕 赤シート（暗記用）設定</p>
+                        <label><input type="radio" name="redTarget" value="none" checked> 赤文字にしない</label>
+                        <label><input type="radio" name="redTarget" value="en"> 英語を赤文字にする</label>
+                        <label><input type="radio" name="redTarget" value="jp"> 日本語を赤文字にする</label>
+                    </div>
+
+                    <button onclick="executeCustomPrint()" style="background: #0ea5e9; margin-top: 12px;">この設定でプリント印刷</button>
+                </div>
             </div>
-            <p style="cursor:pointer; color:#64748b; font-size:0.8rem; margin-top:15px;" onclick="showPage('page-setup')">戻る</p>
+            <p style="cursor:pointer; color:#64748b; font-size:0.8rem; margin-top:15px;" onclick="showPage('page-setup')" class="print-control-area">戻る</p>
         </div>
 
         <div id="page-quiz" class="page">
@@ -130,8 +157,8 @@
             <h3 style="margin-top:0;">練習問題のカスタマイズ</h3>
             <p id="modal-msg" style="color:#64748b; margin-bottom:15px;"></p>
             
-            <div class="mode-select-box">
-                <label>
+            <div class="option-box" style="background:#f1f5f9; padding:12px; border-radius:10px; margin-bottom:15px; text-align:left;">
+                <label style="display:block; margin:8px 0;">
                     <input type="radio" name="quizRange" value="all" checked> すべての単語から出題
                 </label>
                 <label id="wrongRangeOptLabel" style="display:none;">
@@ -183,10 +210,41 @@
             list.innerHTML = allWords.map(w => {
                 const isWrong = wrongData[w.english] !== undefined;
                 return `<tr class="${isWrong ? 'wrong-word' : ''}">
-                    <td class="${hideEnglish ? 'hidden-col' : ''}"><b>${w.english}</b></td>
-                    <td class="${hideJapanese ? 'hidden-col' : ''}">${w.japanese}</td>
+                    <td class="col-en ${hideEnglish ? 'hidden-col' : ''}"><b>${w.english}</b></td>
+                    <td class="col-jp ${hideJapanese ? 'hidden-col' : ''}">${w.japanese}</td>
                 </tr>`;
             }).join('');
+        }
+
+        // 🔘 印刷用オプションの表示連動
+        function updatePrintOptions() {
+            const pattern = document.querySelector('input[name="printPattern"]:checked').value;
+            const redBox = document.getElementById('redSheetOptions');
+            if (pattern === 'both') {
+                redBox.style.display = 'block';
+            } else {
+                redBox.style.display = 'none';
+            }
+        }
+
+        // 🖨️ 印刷用クラスを設定して実行する関数
+        function executeCustomPrint() {
+            // クラスを一度リセット
+            document.body.classList.remove('print-hide-en', 'print-hide-jp', 'print-red-en', 'print-red-jp');
+
+            const pattern = document.querySelector('input[name="printPattern"]:checked').value;
+            
+            if (pattern === 'enOnly') {
+                document.body.classList.add('print-hide-jp');
+            } else if (pattern === 'jpOnly') {
+                document.body.classList.add('print-hide-en');
+            } else if (pattern === 'both') {
+                const redTarget = document.querySelector('input[name="redTarget"]:checked').value;
+                if (redTarget === 'en') document.body.classList.add('print-red-en');
+                if (redTarget === 'jp') document.body.classList.add('print-red-jp');
+            }
+
+            window.print();
         }
 
         async function loadData() {
