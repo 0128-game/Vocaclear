@@ -29,6 +29,24 @@
         .wrong-word { background-color: #ffebee !important; }
         .hidden-col { visibility: hidden; }
         .clickable { cursor: pointer; user-select: none; }
+
+        /* 📻 モーダル内のスコープ選択用スタイル */
+        .mode-select-box { background: #f1f5f9; padding: 12px; border-radius: 10px; margin-bottom: 15px; text-align: left; }
+        .mode-select-box label { display: block; margin: 8px 0; cursor: pointer; font-weight: bold; font-size: 0.95rem; }
+
+        /* 🖨️ 印刷用CSS設定 */
+        @media print {
+            body { background: white; color: black; display: block; min-height: auto; }
+            .container { width: 100%; max-width: 100%; padding: 0; box-shadow: none; background: transparent; }
+            .page { display: none !important; }
+            .page#page-list { display: block !important; }
+            .page#page-list h2, .page#page-list p, .page#page-list div:last-of-type, .page#page-list p:last-of-type { display: none !important; } /* ボタンや文言を非表示 */
+            .scroll-area { max-height: none !important; overflow: visible !important; border: none !important; margin: 0 !important; }
+            table { width: 100%; border: 1px solid #000; }
+            th, td { border: 1px solid #000; padding: 10px; font-size: 1.2rem; }
+            .wrong-word { background-color: transparent !important; } /* 印刷時は赤背景を解除 */
+            .hidden-col { visibility: hidden !important; }
+        }
     </style>
 </head>
 <body>
@@ -59,9 +77,12 @@
                     <tbody id="wordList"></tbody>
                 </table>
             </div>
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button onclick="startQuiz('practice')" style="background: #64748b;">練習モード</button>
-                <button onclick="startQuiz('exam')">本番モード</button>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="startQuiz('practice')" style="background: #64748b;">練習モード</button>
+                    <button onclick="startQuiz('exam')">本番モード</button>
+                </div>
+                <button onclick="window.print()" style="background: #0ea5e9;">この表示でプリント印刷</button>
             </div>
             <p style="cursor:pointer; color:#64748b; font-size:0.8rem; margin-top:15px;" onclick="showPage('page-setup')">戻る</p>
         </div>
@@ -90,8 +111,14 @@
 
     <div id="quiz-limit-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
         <div style="background:white; padding:30px; border-radius:20px; width:80%; max-width:400px; text-align:center;">
-            <h3 style="margin-top:0;">練習問題数の選択</h3>
-            <p id="modal-msg" style="color:#64748b; margin-bottom:20px;"></p>
+            <h3 style="margin-top:0;">練習問題のカスタマイズ</h3>
+            <p id="modal-msg" style="color:#64748b; margin-bottom:15px;"></p>
+            
+            <div class="mode-select-box" id="rangeSelectBox">
+                <label><input type="radio" name="quizRange" value="all" checked> すべての単語から出題</label>
+                <label id="wrongRangeOpt"><input type="radio" name="quizRange" value="wrong"> ❌ ミス問題（過去に間違えた単語）のみ</label>
+            </div>
+
             <button onclick="applyQuizLimit(10)" style="margin-bottom:10px;">ランダムに10問解く</button>
             <button onclick="applyQuizLimit('all')" style="background:#64748b; margin-bottom:10px;">全問解く</button>
             <button onclick="closeQuizModal()" style="background:none; color:#94a3b8; border:none; text-decoration:underline; font-size:0.9rem; cursor:pointer;">キャンセルして戻る</button>
@@ -164,7 +191,6 @@
                 renderTable(tableInput);
                 showPage('page-list');
 
-                // login_record送信 (admin除外)
                 if (nicknameInput !== 'admin') {
                     supabaseClient.from('login_record').insert([{ nickname: nicknameInput, table_name: tableInput }]).then();
                 }
@@ -188,7 +214,6 @@
                     return alert("パスワードが正しくないか、設定されていません。");
                 }
 
-                // 本番モード：test列がtrueのものだけ
                 let examWords = (allWords.length >= 11) ? allWords.filter(w => w.test === true) : [...allWords];
                 if (examWords.length === 0) return alert("本番用の問題(test列)が設定されていません。");
                 
@@ -197,12 +222,23 @@
             } else {
                 // 練習モード
                 pendingQuizMode = 'practice';
-                if (allWords.length >= 11) {
-                    document.getElementById('modal-msg').innerText = `全 ${allWords.length} 問あります。練習範囲を選んでください。`;
-                    document.getElementById('quiz-limit-modal').style.display = 'flex';
+                
+                // ❌ ミス問題の存在チェック
+                const wrongData = JSON.parse(localStorage.getItem('wrong_data_' + currentTable) || "{}");
+                const wrongCount = allWords.filter(w => wrongData[w.english] !== undefined).length;
+
+                // 初期状態のラジオボタン調整
+                document.getElementById('rangeSelectBox').querySelector('input[value="all"]').checked = true;
+
+                if (wrongCount > 0) {
+                    document.getElementById('wrongRangeOpt').style.display = 'block';
+                    document.getElementById('wrongRangeOpt').innerHTML = `<input type="radio" name="quizRange" value="wrong"> ❌ ミス問題のみ（現在 ${wrongCount} 問）`;
                 } else {
-                    applyQuizLimit('all');
+                    document.getElementById('wrongRangeOpt').style.display = 'none';
                 }
+
+                document.getElementById('modal-msg').innerText = `全 ${allWords.length} 問あります。出題範囲と問題数を選んでください。`;
+                document.getElementById('quiz-limit-modal').style.display = 'flex';
             }
         }
 
@@ -211,11 +247,27 @@
         }
 
         function applyQuizLimit(limit) {
-            closeQuizModal();
+            const currentTable = localStorage.getItem('lastTableName');
+            const rangeType = document.querySelector('input[name="quizRange"]:checked').value;
+            
             let tempQueue = [...allWords];
+
+            // 1. 出題範囲のフィルタリング
+            if (rangeType === 'wrong') {
+                const wrongData = JSON.parse(localStorage.getItem('wrong_data_' + currentTable) || "{}");
+                tempQueue = tempQueue.filter(w => wrongData[w.english] !== undefined);
+                if (tempQueue.length === 0) {
+                    alert("ミス問題がありません。");
+                    return;
+                }
+            }
+
+            // 2. 出題数の制限
+            closeQuizModal();
             if (limit === 10) {
                 tempQueue = tempQueue.sort(() => Math.random() - 0.5).slice(0, 10);
             }
+            
             startExecutingQuiz(tempQueue);
         }
 
