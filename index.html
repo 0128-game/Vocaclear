@@ -3,434 +3,448 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VocaClear</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <title>LingoBlock - ライトテーマ完全版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        :root { --primary: #3ecf8e; --bg: #f8fafc; --text: #1e293b; }
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .container { background: white; width: 90%; max-width: 600px; padding: 40px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; }
-        .page { display: none; }
-        .page.active { display: block; animation: fadeIn 0.5s ease; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        h2 { margin-top: 0; color: #333; }
-        input[type="text"] { width: 100%; padding: 12px; margin: 15px 0; border: 2px solid #e2e8f0; border-radius: 10px; box-sizing: border-box; font-size: 1rem; }
-        button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 1rem; transition: 0.2s; }
-        button:disabled { background: #ccc; cursor: not-allowed; }
-        #loader { display: none; margin: 10px 0; color: var(--primary); font-weight: bold; }
-        .spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(62,207,142,.3); border-radius: 50%; border-top-color: var(--primary); animation: spin 1s ease-in-out infinite; vertical-align: middle; margin-right: 8px; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .scroll-area { max-height: 300px; overflow-y: auto; border: 1px solid #eee; margin: 20px 0; border-radius: 10px; }
-        table { width: 100%; border-collapse: collapse; }
-        td, th { padding: 12px; border-bottom: 1px solid #f1f5f9; text-align: left; }
-        .q-text { font-size: 2rem; margin: 30px 0; font-weight: bold; color: #1e293b; }
-        .progress { font-size: 0.9rem; color: #64748b; margin-bottom: 10px; }
-        #feedback { min-height: 30px; margin-top: 15px; font-weight: bold; }
-        .score { font-size: 3rem; color: var(--primary); font-weight: bold; margin: 20px 0; }
-        .wrong-word { background-color: #ffebee !important; }
-        .hidden-col { visibility: hidden; }
-        .clickable { cursor: pointer; user-select: none; }
+        body { user-select: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* 📻 モーダル・オプションエリア用のスタイル */
-        .option-box { background: #f1f5f9; padding: 15px; border-radius: 10px; margin-bottom: 15px; text-align: left; }
-        .option-box p { margin: 0 0 8px 0; font-weight: bold; font-size: 0.9rem; color: #475569; }
-        .option-box label { display: block; margin: 8px 0; cursor: pointer; font-size: 0.95rem; font-weight: bold; }
-        .option-box input[type="radio"] { margin-right: 8px; transform: scale(1.1); vertical-align: middle; }
+        /* パズル風の凹凸結合デザイン用の共通スタイル */
+        .puzzle-block {
+            position: absolute;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.875rem;
+            cursor: move;
+            z-index: 20;
+            /* 影をライトテーマに馴染む柔らかい薄い影に変更 */
+            box-shadow: 0 4px 10px -1px rgba(0, 0, 0, 0.08);
+            /* 白背景に対して境界が引き締まるよう、少し不透明度を上げた白枠に変更 */
+            border: 2px solid rgba(255, 255, 255, 0.4);
+        }
 
-        /* 🖨️ 印刷用基本CSS設定 */
-        @media print {
-            @page { margin: 0mm; }
-            body { background: white; color: black; display: block; min-height: auto; margin: 0mm !important; padding: 15mm !important; }
-            
-            .container { width: 100%; max-width: 100%; padding: 0; box-shadow: none; background: transparent; }
-            .page { display: none !important; }
-            .page#page-list { display: block !important; }
-            .page#page-list h2, .page#page-list > p, .page#page-list div:last-of-type { display: none !important; }
-            .scroll-area { max-height: none !important; overflow: visible !important; border: none !important; margin: 0 !important; }
-            table { width: 100%; border: 1px solid #000; border-collapse: collapse; }
-            th, td { border: 1px solid #aaa; padding: 10px; font-size: 1.2rem; color: #000; }
-            
-            .wrong-word { 
-                background-color: #ffebee !important; 
-                -webkit-print-color-adjust: exact; 
-                print-color-adjust: exact;
-            }
-            .wrong-word td {
-                border: 2px solid #cc0000 !important;
-                font-weight: bold;
-            }
-            .wrong-word td:first-child::before {
-                content: "★ ";
-                color: #cc0000;
-            }
+        /* 結合状態に応じた角丸の制御 */
+        .joint-none { border-radius: 8px; }
+        .joint-left { border-radius: 8px 0 0 8px; border-right: none; }
+        .joint-right { border-radius: 0 8px 8px 0; border-left: none; }
+        .joint-middle { border-radius: 0; border-x: none; }
 
-            body.print-hide-en .col-en { visibility: hidden !important; }
-            body.print-hide-jp .col-jp { visibility: hidden !important; }
-            body.print-red-en .col-en, body.print-red-en .wrong-word .col-en { color: #ff0000 !important; }
-            body.print-red-jp .col-jp, body.print-red-jp .wrong-word .col-jp { color: #ff0000 !important; }
-            
-            /* 印刷時はすべてのモーダル背景・コントロールを強制非表示 */
-            .print-control-area, #quiz-limit-modal, #print-setting-modal { display: none !important; }
+        /* ジョイント部分の凸（右側） */
+        .joint-left::after, .joint-middle::after {
+            content: ''; position: absolute; right: -6px; top: 12px;
+            width: 12px; height: 16px; background: inherit;
+            border: 2px solid rgba(255, 255, 255, 0.4); border-left: none;
+            border-radius: 0 4px 4px 0; z-index: 30;
+        }
+        /* ジョイント部分の凹（左側） */
+        .joint-right::before, .joint-middle::before {
+            content: ''; position: absolute; left: -2px; top: 12px;
+            width: 6px; height: 16px; 
+            /* 新しいアプリの明るい背景色（#f8fafc）に完全同化 */
+            background: #f8fafc; 
+            border: 2px solid rgba(255, 255, 255, 0.4); border-left: none;
+            border-radius: 0 4px 4px 0; z-index: 25;
         }
     </style>
 </head>
-<body>
+<body class="bg-[#f8fafc] text-[#1e293b] font-sans overflow-hidden h-screen w-screen flex flex-col">
 
-    <div class="container">
-        <div id="page-setup" class="page active">
-            <h2>VocaClear - 英単語表&テスト</h2>
-            <p>ニックネームを入力してください</p>
-            <p>コードを入力してください</p>
-            <input type="text" id="nickname" placeholder="ニックネームを入力..." maxlength="15">   
-            <input type="text" id="tableName" placeholder="コードを入力...">
-            <button id="loadBtn" onclick="loadData()">データを取得する</button>
-            <div id="loader"><span class="spinner"></span>データ取得中...</div>
-        </div>
+    <div class="flex flex-1 overflow-hidden relative">
+        <aside class="w-80 bg-white border-r border-slate-200 flex flex-col p-4 z-50 overflow-y-auto no-scrollbar shadow-lg">
+            <h1 class="text-xl font-extrabold tracking-wider mb-4 text-center bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                LingoBlock
+            </h1>
 
-        <div id="page-list" class="page">
-            <h2>単語一覧</h2>
-            <p>赤い単語は過去に間違ったことがある単語です</p>
-            <p>列の見出しをクリックすると表示/非表示を切り替えられます</p>
-            <div class="scroll-area">
-                <table>
-                    <thead>
-                        <tr>
-                            <th class="clickable" onclick="toggleHide('en')">英語</th>
-                            <th class="clickable" onclick="toggleHide('jp')">日本語</th>
-                        </tr>
-                    </thead>
-                    <tbody id="wordList"></tbody>
-                </table>
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-slate-500 mb-1">ジャンル選択</label>
+                <select id="genre-select" class="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-sm focus:outline-none text-slate-700">
+                    <option value="myblocks">マイブロック</option>
+                </select>
             </div>
-            
-            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;" class="print-control-area">
-                <div style="display: flex; gap: 10px;">
-                    <button onclick="startQuiz('practice')" style="background: #64748b;">練習モード</button>
-                    <button onclick="startQuiz('exam')">本番モード</button>
+
+            <div class="grid grid-cols-2 gap-2 mb-4">
+                <button id="btn-undo" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs py-1.5 rounded font-semibold disabled:opacity-40">UNDO</button>
+                <button id="btn-redo" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs py-1.5 rounded font-semibold disabled:opacity-40">REDO</button>
+                <button id="btn-save" class="bg-[#3ecf8e] hover:opacity-90 text-white text-xs py-1.5 rounded font-bold col-span-2 shadow-sm shadow-emerald-100">ブラウザに保存</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 mb-4">
+                <button id="btn-open-media" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs py-1.5 rounded font-bold border border-indigo-200">IMAGE CAPTURE</button>
+                <button id="btn-open-add" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs py-1.5 rounded font-bold border border-emerald-200">ブロック追加</button>
+            </div>
+
+            <div class="mb-4 border-t border-slate-100 pt-3">
+                <label class="block text-xs font-bold text-slate-500 mb-1">データコードエリア</label>
+                <textarea id="save-code-area" class="w-full h-16 bg-slate-50 border border-slate-200 rounded p-1 text-xs font-mono resize-none focus:outline-none text-blue-600" placeholder="コード..."></textarea>
+                <div class="grid grid-cols-2 gap-2 mt-1">
+                    <button id="btn-export" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs py-1 rounded font-medium">SAVE CODE</button>
+                    <button id="btn-import" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs py-1 rounded font-medium">LOAD CODE</button>
                 </div>
-                <button onclick="openPrintModal()" style="background: #0ea5e9;">単語プリント印刷</button>
+                <button id="btn-reset" class="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs py-1 rounded mt-2 font-bold">ALL RESET (全消去)</button>
             </div>
-            <p style="cursor:pointer; color:#64748b; font-size:0.8rem; margin-top:15px;" onclick="showPage('page-setup')" class="print-control-area">戻る</p>
-        </div>
 
-        <div id="page-quiz" class="page">
-            <div class="progress">問題 <span id="currentNum">0</span> / <span id="totalNum">0</span></div>
-            <div id="qJapanese" class="q-text"> </div>
-             <p>文章、固有名詞以外は小文字から始めてください</p>
-            <p>特別な指示がない場合は名詞は単数形、動詞は原形で回答してください</p>
-            <input type="text" id="userAnswer" placeholder="英語を入力してEnter" autocomplete="off" onkeypress="if(event.key==='Enter') checkAnswer()">
-            <button onclick="checkAnswer()">回答する</button>
-            <div id="feedback"></div>
-        </div>
-
-        <div id="page-result" class="page">
-            <h2>テスト終了！</h2>
-            <div class="score" id="finalScore">0%</div>
-            <p id="resultDetail"></p>
-            <div id="rankingArea" style="margin: 20px 0; text-align: left; background: #f1f5f9; padding: 15px; border-radius: 10px; display: none;">
-                <h4 style="margin: 0 0 10px 0;">🏆 暫定ランキング (TOP 5)</h4>
-                <div id="rankingList" style="font-size: 0.9rem;"></div>
+            <div class="flex-1 border-t border-slate-100 pt-3 flex flex-col overflow-hidden">
+                <label class="block text-xs font-bold text-slate-500 mb-2">パレット (ドラッグして配置 / Wクリックでブロック抹消)</label>
+                <div id="palette-container" class="flex-1 overflow-y-auto space-y-2 p-1 bg-slate-50 rounded border border-slate-100 min-h-[150px]"></div>
             </div>
-            <button onclick="showPage('page-list')">単語一覧に戻る</button>
-        </div>
+        </aside>
+
+        <main class="flex-1 relative bg-[#f8fafc] overflow-hidden" id="editor-container">
+            <div id="editor-workspace" class="absolute inset-0 origin-top-left touch-none" style="width: 3000px; height: 3000px; background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px); background-size: 24px 24px;"></div>
+        </main>
     </div>
 
-    <div id="quiz-limit-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
-        <div style="background:white; padding:30px; border-radius:20px; width:80%; max-width:400px; text-align:center;">
-            <h3 style="margin-top:0;">練習問題のカスタマイズ</h3>
-            <p id="modal-msg" style="color:#64748b; margin-bottom:15px;"></p>
-            
-            <div class="option-box">
-                <label><input type="radio" name="quizRange" value="all" checked> すべての単語から出題</label>
-                <label id="wrongRangeOptLabel" style="display:none;"><input type="radio" name="quizRange" value="wrong"> <span id="wrongRangeText" style="color:#e74c3c">❌ ミス問題のみ</span></label>
+    <div id="modal-add" class="hidden fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center">
+        <div class="bg-white border border-slate-200 p-6 rounded-xl w-80 shadow-2xl">
+            <h3 class="text-base font-bold mb-4 text-[#3ecf8e]">✨ カスタムブロック追加</h3>
+            <div class="space-y-3 text-sm">
+                <input type="text" id="add-word" class="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-slate-800 focus:outline-none" placeholder="example">
+                <select id="add-pos" class="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-slate-800 focus:outline-none">
+                    <option value="名詞">名詞 (青)</option><option value="代名詞">代名詞 (水色)</option><option value="形容詞">形容詞 (緑)</option>
+                    <option value="副詞">副詞 (深緑)</option><option value="前置詞">前置詞 (オレンジ)</option><option value="助動詞">助動詞 (赤)</option>
+                    <option value="冠詞">冠詞 (黄色)</option><option value="疑問詞">疑問詞 (紫)</option><option value="終末ブロック">終末ブロック (グレー)</option><option value="その他">その他</option>
+                </select>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button id="btn-close-add" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs rounded font-medium">キャンセル</button>
+                    <button id="btn-create-block" class="px-4 py-1 bg-[#3ecf8e] text-white rounded text-xs font-bold shadow-sm">追加</button>
+                </div>
             </div>
-
-            <button onclick="applyQuizLimit(10)" style="margin-bottom:10px;">ランダムに10問解く</button>
-            <button onclick="applyQuizLimit('all')" style="background:#64748b; margin-bottom:10px;">全問解く</button>
-            <button onclick="closeQuizModal()" style="background:none; color:#94a3b8; border:none; text-decoration:underline; font-size:0.9rem; cursor:pointer;">キャンセルして戻る</button>
-        </div>
-    </div>
-
-    <div id="print-setting-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
-        <div style="background:white; padding:30px; border-radius:20px; width:80%; max-width:420px; text-align:center;">
-            <h3 style="margin-top:0;">プリント印刷の設定</h3>
-            
-            <div class="option-box">
-                <p>レイアウトパターン</p>
-                <label><input type="radio" name="printPattern" value="both" checked onchange="updatePrintOptions()"> 英語と日本語（両方出力）</label>
-                <label><input type="radio" name="printPattern" value="enOnly" onchange="updatePrintOptions()"> 英語のみ（日本語を隠す）</label>
-                <label><input type="radio" name="printPattern" value="jpOnly" onchange="updatePrintOptions()"> 日本語のみ（英語を隠す）</label>
-            </div>
-            
-            <div class="option-box" id="modalRedSheetOptions">
-                <p>赤シート（暗記用）設定</p>
-                <label><input type="radio" name="redTarget" value="none" checked> 通常黒文字（赤にしない）</label>
-                <label><input type="radio" name="redTarget" value="en"> 英語を赤文字にする</label>
-                <label><input type="radio" name="redTarget" value="jp"> 日本語を赤文字にする</label>
-            </div>
-
-            <button onclick="executeCustomPrint()" style="margin-bottom:10px; background:#0ea5e9;">印刷プレビューを開く</button>
-            <button onclick="closePrintModal()" style="background:none; color:#94a3b8; border:none; text-decoration:underline; font-size:0.9rem; cursor:pointer;">キャンセルして戻る</button>
         </div>
     </div>
 
     <script>
-        const SUPABASE_URL = 'https://vcbhwpahrzdjbakflwvd.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjYmh3cGFocnpkamJha2Zsd3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NTEzMzEsImV4cCI6MjA5MjUyNzMzMX0.Uv71jxtuVhoofw7Z5daMB7JhGncUNQyRslTuGhl_KI0';        
-        let supabaseClient;
-        let allWords = [];
-        let quizQueue = [];
-        let correctCount = 0;
-        let totalQuestions = 0;
-        let currentWord = null;
-        let currentMode = 'practice';
-        let isProcessing = false; 
-        let pendingQuizMode = '';
-        let hideEnglish = false;
-        let hideJapanese = false;
+        const POS_COLORS = {
+            "名詞": "bg-blue-500 text-white", "代名詞": "bg-sky-400 text-white",
+            "形容詞": "bg-emerald-500 text-white", "副詞": "bg-teal-600 text-white",
+            "前置詞": "bg-orange-400 text-white", "助動詞": "bg-rose-500 text-white",
+            "冠詞": "bg-amber-400 text-amber-950", "疑問詞": "bg-violet-500 text-white",
+            "終末ブロック": "bg-slate-400 text-white", "other": "bg-slate-200 text-slate-800", "その他": "bg-slate-200 text-slate-800"
+        };
 
-        function showPage(pageId) {
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.getElementById(pageId).classList.add('active');
-            if (pageId === 'page-list') {
-                const currentTable = localStorage.getItem('lastTableName');
-                if (currentTable && allWords.length > 0) renderTable(currentTable);
+        let state = { components: [], myBlocks: [] };
+        let csvDatabase = {};
+        let history = [];
+        let historyIndex = -1;
+        
+        let draggingObj = null;
+        let dragStartX = 0, dragStartY = 0;
+        let initialRowBlocks = [];
+
+        const container = document.getElementById('editor-container');
+        const workspace = document.getElementById('editor-workspace');
+        const genreSelect = document.getElementById('genre-select');
+        const paletteContainer = document.getElementById('palette-container');
+        const saveCodeArea = document.getElementById('save-code-area');
+
+        function utoa(str) { return btoa(unescape(encodeURIComponent(str))); }
+        function atou(str) { return decodeURIComponent(escape(atob(str))); }
+
+        window.onload = async function() {
+            setupEventListeners();
+            loadFromLocalStorage();
+            await loadCSVFiles();
+            updateGenreDropdown();
+            updatePalette();
+            renderWorkspace();
+            saveHistory();
+        };
+
+        function saveHistory() {
+            const current = JSON.stringify({ components: state.components });
+            if (historyIndex >= 0 && history[historyIndex] === current) return;
+            history = history.slice(0, historyIndex + 1).concat([current]);
+            if (history.length > 50) history.shift(); else historyIndex++;
+            updateUndoRedoButtons();
+        }
+        function undo() { if (historyIndex > 0) { historyIndex--; applyState(JSON.parse(history[historyIndex])); } }
+        function redo() { if (historyIndex < history.length - 1) { historyIndex++; applyState(JSON.parse(history[historyIndex])); } }
+        function applyState(snap) { state.components = snap.components.map(c => ({ ...c })); renderWorkspace(); updateUndoRedoButtons(); }
+        function updateUndoRedoButtons() {
+            document.getElementById('btn-undo').disabled = historyIndex <= 0;
+            document.getElementById('btn-redo').disabled = historyIndex >= history.length - 1;
+        }
+
+        async function loadCSVFiles() {
+            const csvFiles = ['csv1.csv', 'csv2.csv', 'csv3.csv'];
+            for (const name of csvFiles) {
+                try {
+                    const res = await fetch('./csv/' + name); if (!res.ok) continue;
+                    const text = await res.text();
+                    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0); if (lines.length === 0) continue;
+                    const genreName = lines[0].split(',')[0]; if (!csvDatabase[genreName]) csvDatabase[genreName] = [];
+                    for (let i = 1; i < lines.length; i++) {
+                        const p = lines[i].split(','); if (p.length >= 2) csvDatabase[genreName].push({ value: p[0].trim(), text: p[1].trim() });
+                    }
+                } catch (e) {}
             }
         }
-
-        function toggleHide(type) {
-            if (type === 'en') hideEnglish = !hideEnglish;
-            if (type === 'jp') hideJapanese = !hideJapanese;
-            const currentTable = localStorage.getItem('lastTableName');
-            if (currentTable) renderTable(currentTable); 
+        function updateGenreDropdown() {
+            genreSelect.innerHTML = '<option value="myblocks">マイブロック</option>';
+            Object.keys(csvDatabase).forEach(g => {
+                const opt = document.createElement('option'); opt.value = g; opt.textContent = g; genreSelect.appendChild(opt);
+            });
+            if(Object.keys(csvDatabase).length > 0) genreSelect.value = Object.keys(csvDatabase)[0];
         }
-
-        function renderTable(tableName) {
-            const list = document.getElementById('wordList');
-            const wrongData = JSON.parse(localStorage.getItem('wrong_data_' + tableName) || "{}");
-            list.innerHTML = allWords.map(w => {
-                const isWrong = wrongData[w.english] !== undefined;
-                return `<tr class="${isWrong ? 'wrong-word' : ''}">
-                    <td class="col-en ${hideEnglish ? 'hidden-col' : ''}"><b>${w.english}</b></td>
-                    <td class="col-jp ${hideJapanese ? 'hidden-col' : ''}">${w.japanese}</td>
-                </tr>`;
-            }).join('');
-        }
-
-        // 🖨️ 印刷モーダルの開閉
-        function openPrintModal() {
-            document.querySelector('input[name="printPattern"][value="both"]').checked = true;
-            document.querySelector('input[name="redTarget"][value="none"]').checked = true;
-            document.getElementById('modalRedSheetOptions').style.display = 'block';
-            document.getElementById('print-setting-modal').style.display = 'flex';
-        }
-
-        function closePrintModal() {
-            document.getElementById('print-setting-modal').style.display = 'none';
-        }
-
-        function updatePrintOptions() {
-            const pattern = document.querySelector('input[name="printPattern"]:checked').value;
-            const redBox = document.getElementById('modalRedSheetOptions');
-            if (pattern === 'both') {
-                redBox.style.display = 'block';
-            } else {
-                redBox.style.display = 'none';
-            }
-        }
-
-        // 🖨️ モーダル内で決定されたオプションで印刷を実行
-        function executeCustomPrint() {
-            document.body.classList.remove('print-hide-en', 'print-hide-jp', 'print-red-en', 'print-red-jp');
-            const pattern = document.querySelector('input[name="printPattern"]:checked').value;
-            
-            if (pattern === 'enOnly') {
-                document.body.classList.add('print-hide-jp');
-            } else if (pattern === 'jpOnly') {
-                document.body.classList.add('print-hide-en');
-            } else if (pattern === 'both') {
-                const redTarget = document.querySelector('input[name="redTarget"]:checked').value;
-                if (redTarget === 'en') document.body.classList.add('print-red-en');
-                if (redTarget === 'jp') document.body.classList.add('print-red-jp');
-            }
-
-            closePrintModal(); // ダイアログを開く前にモーダルを閉じる
-            window.print();
-        }
-
-        async function loadData() {
-            const tableInput = document.getElementById('tableName').value.trim();
-            const nicknameInput = document.getElementById('nickname').value.trim() || 'anonymous';
-            if (!tableInput) return alert("テーブル名を入力してください");
-            localStorage.setItem('lastTableName', tableInput);
-            
-            if (!supabaseClient) {
-                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            }
-
-            const btn = document.getElementById('loadBtn');
-            const loader = document.getElementById('loader');
-            btn.disabled = true;
-            loader.style.display = 'block';
-
-            try {
-                const { data, error } = await supabaseClient.from(tableInput).select('*');
-                if (error) throw error;
-                allWords = data;
-                renderTable(tableInput);
-                showPage('page-list');
-
-                if (nicknameInput !== 'admin') {
-                    supabaseClient.from('login_record').insert([{ nickname: nicknameInput, table_name: tableInput }]).then();
-                }
-            } catch (err) {
-                alert("エラー: " + err.message);
-            } finally {
-                btn.disabled = false;
-                loader.style.display = 'none';
-            }
-        }
-
-        async function startQuiz(mode) {
-            if (allWords.length === 0) return alert("データがありません");
-            const currentTable = localStorage.getItem('lastTableName');
-
-            if (mode === 'exam') {
-                const inputPass = prompt("本番モード用パスワードを入力してください:");
-                if (!inputPass) return;
-                const { data, error } = await supabaseClient.from('table_passwords').select('password').eq('table_name', currentTable).single();
-                if (error || !data || inputPass !== data.password) {
-                    return alert("パスワードが正しくないか、設定されていません。");
-                }
-
-                let examWords = (allWords.length >= 11) ? allWords.filter(w => w.test === true) : [...allWords];
-                if (examWords.length === 0) return alert("本番用の問題(test列)が設定されていません。");
+        
+        function updatePalette() {
+            paletteContainer.innerHTML = '';
+            const g = genreSelect.value;
+            const blocks = (g === 'myblocks') ? state.myBlocks : (csvDatabase[g] || []);
+            if (blocks.length === 0) { paletteContainer.innerHTML = `<div class="text-xs text-slate-400 p-2 text-center">空です</div>`; return; }
+            blocks.forEach((b, idx) => {
+                const el = document.createElement('div');
+                el.className = `p-2 rounded border border-slate-200 text-xs font-bold cursor-grab shadow-sm select-none ${POS_COLORS[b.value] || POS_COLORS['その他']}`;
+                el.textContent = `${b.text} [${b.value}]`; el.draggable = true;
                 
-                pendingQuizMode = 'exam';
-                startExecutingQuiz(examWords);
-            } else {
-                pendingQuizMode = 'practice';
+                // ドラッグイベント
+                el.ondragstart = (e) => e.dataTransfer.setData('blockStr', JSON.stringify(b));
                 
-                const wrongData = JSON.parse(localStorage.getItem('wrong_data_' + currentTable) || "{}");
-                const wrongCount = allWords.filter(w => wrongData[w.english] !== undefined).length;
+                // 🛠️ ダブルクリック時のイベントを変更（存在ごと消去）
+                el.ondblclick = () => {
+                    if (g === 'myblocks') {
+                        // 1. マイブロック配列（パレットデータ）からこのインデックスの要素を削除
+                        state.myBlocks.splice(idx, 1);
+                        
+                        // 2. ローカルストレージに自動保存してパレットを再描画
+                        autoSaveToLocalStorage();
+                        updatePalette();
 
-                document.querySelector('input[name="quizRange"][value="all"]').checked = true;
+                        // 3. ワークスペース上（エディタ）からも同じ単語＆同じ品詞のブロックを一括削除
+                        const beforeLength = state.components.length;
+                        state.components = state.components.filter(c => !(c.text === b.text && c.value === b.value));
+                        
+                        if (state.components.length !== beforeLength) {
+                            saveHistory();
+                            renderWorkspace();
+                        }
+                    } else {
+                        alert("CSVロードされた標準ジャンルのブロックはパレットから削除できません。");
+                    }
+                };
 
-                if (wrongCount > 0) {
-                    document.getElementById('wrongRangeOptLabel').style.display = 'block';
-                    document.getElementById('wrongRangeText').innerText = `❌ ミス問題のみ（現在 ${wrongCount} 問）`;
-                } else {
-                    document.getElementById('wrongRangeOptLabel').style.display = 'none';
+                paletteContainer.appendChild(el);
+            });
+        }
+
+        function renderWorkspace() {
+            workspace.innerHTML = '';
+            
+            state.components.forEach(c => {
+                c.width = Math.max(76, c.text.length * 10 + 24); 
+            });
+
+            let checkedIds = new Set();
+            
+            state.components.forEach(c => {
+                if (checkedIds.has(c.id)) return;
+
+                let rowBlocks = state.components.filter(other => Math.abs(other.y - c.y) < 15);
+                rowBlocks.sort((a, b) => a.x - b.x);
+
+                let currentGroup = [];
+                for (let i = 0; i < rowBlocks.length; i++) {
+                    if (currentGroup.length === 0) {
+                        currentGroup.push(rowBlocks[i]);
+                    } else {
+                        let lastBlock = currentGroup[currentGroup.length - 1];
+                        if (rowBlocks[i].x - (lastBlock.x + lastBlock.width) <= 15) {
+                            currentGroup.push(rowBlocks[i]);
+                        } else {
+                            if (currentGroup.some(b => b.id === c.id)) break;
+                            currentGroup = [rowBlocks[i]];
+                        }
+                    }
                 }
 
-                document.getElementById('modal-msg').innerText = `全 ${allWords.length} 問あります。出題範囲と問題数を選んでください。`;
-                document.getElementById('quiz-limit-modal').style.display = 'flex';
-            }
-        }
+                currentGroup.forEach((block, index) => {
+                    checkedIds.add(block.id);
 
-        function closeQuizModal() {
-            document.getElementById('quiz-limit-modal').style.display = 'none';
-        }
+                    if (currentGroup.length > 1 && index > 0) {
+                        let prev = currentGroup[index - 1];
+                        block.x = prev.x + prev.width;
+                        block.y = prev.y;
+                    }
 
-        function applyQuizLimit(limit) {
-            const currentTable = localStorage.getItem('lastTableName');
-            const rangeType = document.querySelector('input[name="quizRange"]:checked').value;
-            
-            let tempQueue = [...allWords];
+                    const blockEl = document.createElement('div');
+                    blockEl.id = block.id;
+                    blockEl.style.left = block.x + 'px'; 
+                    blockEl.style.top = block.y + 'px';
+                    blockEl.style.width = block.width + 'px';
+                    
+                    let jointClass = "joint-none";
+                    if (currentGroup.length > 1) {
+                        if (index === 0) jointClass = "joint-left";
+                        else if (index === currentGroup.length - 1) jointClass = "joint-right";
+                        else jointClass = "joint-middle";
+                    }
 
-            if (rangeType === 'wrong') {
-                const wrongData = JSON.parse(localStorage.getItem('wrong_data_' + currentTable) || "{}");
-                tempQueue = tempQueue.filter(w => wrongData[w.english] !== undefined);
-                if (tempQueue.length === 0) {
-                    alert("ミス問題がありません。");
-                    return;
-                }
-            }
+                    blockEl.className = `puzzle-block ${jointClass} ${POS_COLORS[block.value] || POS_COLORS['その他']}`;
+                    blockEl.textContent = block.text;
 
-            closeQuizModal();
-            
-            if (limit === 10) {
-                tempQueue = tempQueue.sort(() => Math.random() - 0.5).slice(0, 10);
-            } else {
-                tempQueue = tempQueue.sort(() => Math.random() - 0.5);
-            }
-            
-            startExecutingQuiz(tempQueue);
-        }
+                    blockEl.onmousedown = (e) => {
+                        const now = Date.now();
+                        if (now - block.lastClick < 300) {
+                            state.components = state.components.filter(item => item.id !== block.id);
+                            saveHistory(); renderWorkspace(); draggingObj = null; return;
+                        }
+                        block.lastClick = now;
+                        draggingObj = block;
+                        
+                        dragStartX = e.clientX - block.x;
+                        dragStartY = e.clientY - block.y;
 
-        function startExecutingQuiz(wordsArray) {
-            quizQueue = [...wordsArray];
-            currentMode = pendingQuizMode;
-            totalQuestions = quizQueue.length;
-            correctCount = 0;
-            document.getElementById('totalNum').innerText = totalQuestions;
-            showPage('page-quiz');
-            nextQuestion();
-        }
-
-        function nextQuestion() {
-            isProcessing = false; 
-            if (quizQueue.length === 0) { showResult(); return; }
-            currentWord = quizQueue.shift();
-            document.getElementById('currentNum').innerText = totalQuestions - quizQueue.length;
-            document.getElementById('qJapanese').innerText = currentWord.japanese;
-            document.getElementById('userAnswer').value = '';
-            document.getElementById('userAnswer').focus();
-            document.getElementById('feedback').innerText = '';
-        }
-
-        function checkAnswer() {
-            if (isProcessing) return;
-            const ans = document.getElementById('userAnswer').value.trim();
-            if (!ans) return;
-            isProcessing = true; 
-
-            const fb = document.getElementById('feedback');
-            const currentTable = localStorage.getItem('lastTableName');
-            let wrongData = JSON.parse(localStorage.getItem('wrong_data_' + currentTable) || "{}");
-            
-            if (ans === currentWord.english) {
-                correctCount++;
-                fb.innerHTML = "<span style='color:var(--primary)'>✅ 正解！</span>";
-                if (wrongData[currentWord.english] !== undefined) {
-                    wrongData[currentWord.english]++;
-                    if (wrongData[currentWord.english] >= 3) delete wrongData[currentWord.english];
-                    localStorage.setItem('wrong_data_' + currentTable, JSON.stringify(wrongData));
-                }
-                setTimeout(nextQuestion, 800);
-            } else {
-                wrongData[currentWord.english] = 0; 
-                localStorage.setItem('wrong_data_' + currentTable, JSON.stringify(wrongData));
-                fb.innerHTML = `<span style='color:#e74c3c'>❌ 不正解... 答: ${currentWord.english}</span>`;
-                setTimeout(nextQuestion, 1800);
-            }
-        }
-
-        async function showResult() {
-            const percent = Math.round((correctCount / totalQuestions) * 100);
-            const nickname = document.getElementById('nickname').value.trim() || 'anonymous';
-            const currentTable = localStorage.getItem('lastTableName');
-            document.getElementById('finalScore').innerText = percent + "%";
-            document.getElementById('resultDetail').innerText = (currentMode === 'exam' ? `[本番: ${nickname}] ` : "[練習] ") + `${totalQuestions}問中 ${correctCount}問正解。`;
-            
-            if (currentMode === 'exam') {
-                await supabaseClient.from('quiz_results').insert([{ table_name: currentTable, nickname: nickname, score_percent: percent, correct_count: correctCount, total_count: totalQuestions }]);
-                await updateRanking(currentTable);
-            } else {
-                document.getElementById('rankingArea').style.display = 'none';
-            }
-            showPage('page-result');
-        }
-
-        async function updateRanking(tableName) {
-            const { data } = await supabaseClient.from('quiz_results').select('nickname, score_percent, created_at').eq('table_name', tableName).order('score_percent', { ascending: false }).order('created_at', { ascending: true }).limit(5);
-            if (data && data.length > 0) {
-                let html = "";
-                data.forEach((res, i) => {
-                    html += `<div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding: 4px 0;"><span>${i+1}位: ${res.nickname}</span><b>${res.score_percent}%</b></div>`;
+                        initialRowBlocks = [];
+                        let followers = currentGroup.slice(index + 1);
+                        followers.forEach(f => {
+                            initialRowBlocks.push({
+                                obj: f,
+                                offsetX: f.x - block.x,
+                                offsetY: f.y - block.y
+                            });
+                        });
+                    };
+                    workspace.appendChild(blockEl);
                 });
-                document.getElementById('rankingList').innerHTML = html;
-                document.getElementById('rankingArea').style.display = 'block';
+            });
+        }
+
+        function handleSnapping(p) {
+            let q = null;
+            let minDistance = 60; 
+
+            state.components.forEach(c => {
+                if (c.id === p.id) return;
+
+                const dY = Math.abs(p.y - c.y);
+                if (dY < 30) {
+                    const distToLeft = Math.abs((p.x + p.width) - c.x);
+                    const distToRight = Math.abs(p.x - (c.width + c.x));
+                    const currentDist = Math.min(distToLeft, distToRight);
+
+                    if (currentDist < minDistance) {
+                        minDistance = currentDist;
+                        q = c;
+                    }
+                }
+            });
+
+            if (q) {
+                const shiftWidth = p.width; 
+
+                if (p.x < q.x) {
+                    const originalQx = q.x;
+                    state.components.forEach(c => {
+                        if (c.id !== p.id && c.id !== q.id && Math.abs(c.y - q.y) < 15 && c.x > originalQx) {
+                            c.x += shiftWidth;
+                        }
+                    });
+                    q.x = originalQx + shiftWidth;
+                    q.y = p.y;
+                    p.x = originalQx;
+                    p.y = q.y;
+                } else {
+                    const insertX = q.x + q.width;
+                    state.components.forEach(c => {
+                        if (c.id !== p.id && Math.abs(c.y - q.y) < 15 && c.x >= insertX - 2) {
+                            c.x += shiftWidth;
+                        }
+                    });
+                    p.x = insertX;
+                    p.y = q.y;
+                }
             }
+        }
+
+        function setupEventListeners() {
+            genreSelect.onchange = updatePalette;
+            container.ondragover = e => e.preventDefault();
+            container.ondrop = e => {
+                e.preventDefault();
+                try {
+                    const block = JSON.parse(e.dataTransfer.getData('blockStr'));
+                    const rect = workspace.getBoundingClientRect();
+                    state.components.push({
+                        id: 'b' + Date.now() + Math.random().toString(36).substr(2, 4),
+                        text: block.text, value: block.value,
+                        x: e.clientX - rect.left - 45, y: e.clientY - rect.top - 20, lastClick: 0
+                    });
+                    saveHistory(); renderWorkspace();
+                } catch(err){}
+            };
+
+            window.onmousemove = e => {
+                if (draggingObj) {
+                    draggingObj.x = e.clientX - dragStartX;
+                    draggingObj.y = e.clientY - dragStartY;
+                    
+                    const el = document.getElementById(draggingObj.id);
+                    if (el) {
+                        el.style.left = draggingObj.x + 'px';
+                        el.style.top = draggingObj.y + 'px';
+                    }
+
+                    if (e.shiftKey) {
+                        initialRowBlocks.forEach(f => {
+                            f.obj.x = draggingObj.x + f.offsetX;
+                            f.obj.y = draggingObj.y + f.offsetY;
+                            const fel = document.getElementById(f.obj.id);
+                            if (fel) {
+                                fel.style.left = f.obj.x + 'px';
+                                fel.style.top = f.obj.y + 'px';
+                            }
+                        });
+                    }
+                }
+            };
+
+            window.onmouseup = () => {
+                if (draggingObj) {
+                    handleSnapping(draggingObj); 
+                    initialRowBlocks = [];
+                    saveHistory();
+                    renderWorkspace(); 
+                    draggingObj = null;
+                }
+            };
+
+            window.onkeydown = e => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
+                if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); }
+            };
+            document.getElementById('btn-undo').onclick = undo;
+            document.getElementById('btn-redo').onclick = redo;
+            document.getElementById('btn-save').onclick = () => { autoSaveToLocalStorage(); alert("保存しました"); };
+            document.getElementById('btn-reset').onclick = () => { if(confirm("リセットしますか？")) { state.components = []; saveHistory(); renderWorkspace(); } };
+            document.getElementById('btn-open-add').onclick = () => document.getElementById('modal-add').classList.remove('hidden');
+            document.getElementById('btn-close-add').onclick = () => document.getElementById('modal-add').classList.add('hidden');
+            document.getElementById('btn-create-block').onclick = () => {
+                const t = document.getElementById('add-word').value.trim(); const v = document.getElementById('add-pos').value;
+                if(!t) return alert("入力してください"); state.myBlocks.push({ text: t, value: v });
+                autoSaveToLocalStorage(); genreSelect.value = 'myblocks'; updatePalette();
+                document.getElementById('add-word').value = ''; document.getElementById('modal-add').classList.add('hidden');
+            };
+            document.getElementById('btn-export').onclick = () => { saveCodeArea.value = utoa(JSON.stringify({ components: state.components })); };
+            document.getElementById('btn-import').onclick = () => { try { applyState(JSON.parse(atou(saveCodeArea.value.trim()))); saveHistory(); } catch(e) { alert("無効なコード"); } };
+            document.getElementById('btn-open-media').onclick = async () => {
+                const btn = document.getElementById('btn-open-media'); btn.innerText = "PROCESSING...";
+                const canvas = await html2canvas(container, { backgroundColor: '#f8fafc', scale: 2 });
+                const link = document.createElement('a'); link.download = `lingoblock-${Date.now()}.png`; link.href = canvas.toDataURL(); link.click();
+                btn.innerText = "IMAGE CAPTURE";
+            };
+        }
+
+        function autoSaveToLocalStorage() {
+            localStorage.setItem('lingo_snap_workspace_light', JSON.stringify({ components: state.components }));
+            localStorage.setItem('lingo_snap_myblocks_light', JSON.stringify(state.myBlocks));
+        }
+        function loadFromLocalStorage() {
+            const w = localStorage.getItem('lingo_snap_workspace_light'); const m = localStorage.getItem('lingo_snap_myblocks_light');
+            if (w) { state.components = JSON.parse(w).components || []; } if (m) state.myBlocks = JSON.parse(m);
         }
     </script>
 </body>
