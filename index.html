@@ -34,7 +34,7 @@
         .option-box { background: #f1f5f9; padding: 15px; border-radius: 10px; margin-bottom: 15px; text-align: left; }
         .option-box p { margin: 0 0 8px 0; font-weight: bold; font-size: 0.9rem; color: #475569; }
         .option-box label { display: block; margin: 8px 0; cursor: pointer; font-size: 0.95rem; font-weight: bold; }
-        .option-box input[type="radio"] { margin-right: 8px; transform: scale(1.1); vertical-align: middle; }
+        .option-box input[type="radio"], .option-box input[type="checkbox"] { margin-right: 8px; transform: scale(1.1); vertical-align: middle; }
 
         /* 🖨️ 印刷用基本CSS設定 */
         @media print {
@@ -49,16 +49,17 @@
             table { width: 100%; border: 1px solid #000; border-collapse: collapse; }
             th, td { border: 1px solid #aaa; padding: 10px; font-size: 1.2rem; color: #000; }
             
-            .wrong-word { 
+            /* ⚠️ 印刷時のミス問題ハイライト設定（クラス制御） */
+            body.print-show-wrong .wrong-word { 
                 background-color: #ffebee !important; 
                 -webkit-print-color-adjust: exact; 
                 print-color-adjust: exact;
             }
-            .wrong-word td {
+            body.print-show-wrong .wrong-word td {
                 border: 2px solid #cc0000 !important;
                 font-weight: bold;
             }
-            .wrong-word td:first-child::before {
+            body.print-show-wrong .wrong-word td:first-child::before {
                 content: "★ ";
                 color: #cc0000;
             }
@@ -68,7 +69,6 @@
             body.print-red-en .col-en, body.print-red-en .wrong-word .col-en { color: #ff0000 !important; }
             body.print-red-jp .col-jp, body.print-red-jp .wrong-word .col-jp { color: #ff0000 !important; }
             
-            /* 印刷時はすべてのモーダル背景・コントロールを強制非表示 */
             .print-control-area, #quiz-limit-modal, #print-setting-modal { display: none !important; }
         }
     </style>
@@ -107,7 +107,7 @@
                     <button onclick="startQuiz('practice')" style="background: #64748b;">練習モード</button>
                     <button onclick="startQuiz('exam')">本番モード</button>
                 </div>
-                <button onclick="openPrintModal()" style="background: #0ea5e9;">単語プリント印刷</button>
+                <button onclick="openPrintModal()" style="background: #0ea5e9;">この表示でプリント印刷</button>
             </div>
             <p style="cursor:pointer; color:#64748b; font-size:0.8rem; margin-top:15px;" onclick="showPage('page-setup')" class="print-control-area">戻る</p>
         </div>
@@ -152,7 +152,7 @@
 
     <div id="print-setting-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
         <div style="background:white; padding:30px; border-radius:20px; width:80%; max-width:420px; text-align:center;">
-            <h3 style="margin-top:0;">プリント印刷の設定</h3>
+            <h3 style="margin-top:0;">🖨️ プリント印刷の設定</h3>
             
             <div class="option-box">
                 <p>レイアウトパターン</p>
@@ -162,10 +162,15 @@
             </div>
             
             <div class="option-box" id="modalRedSheetOptions">
-                <p>赤シート（暗記用）設定</p>
+                <p>📕 赤シート（暗記用）設定</p>
                 <label><input type="radio" name="redTarget" value="none" checked> 通常黒文字（赤にしない）</label>
                 <label><input type="radio" name="redTarget" value="en"> 英語を赤文字にする</label>
                 <label><input type="radio" name="redTarget" value="jp"> 日本語を赤文字にする</label>
+            </div>
+
+            <div class="option-box">
+                <p>❌ ミス問題（過去の間違い）の設定</p>
+                <label style="margin: 0; font-size: 0.9rem;"><input type="checkbox" id="showWrongCheck" checked> ミス問題を目立たせる（★印＋赤枠）</label>
             </div>
 
             <button onclick="executeCustomPrint()" style="margin-bottom:10px; background:#0ea5e9;">印刷プレビューを開く</button>
@@ -175,7 +180,8 @@
 
     <script>
         const SUPABASE_URL = 'https://vcbhwpahrzdjbakflwvd.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjYmh3cGFocnpkamJha2Zsd3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NTEzMzEsImV4cCI6MjA5MjUyNzMzMX0.Uv71jxtuVhoofw7Z5daMB7JhGncUNQyRslTuGhl_KI0';        
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjYmh3cGFocnpjamJha2Zsd3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NTEzMzEsImV4cCI6MjA5MjUyNzMzMX0.Uv71jxtuVhoofw7Z5daMB7JhGncUNQyRslTuGhl_KI0';
+        
         let supabaseClient;
         let allWords = [];
         let quizQueue = [];
@@ -216,10 +222,10 @@
             }).join('');
         }
 
-        // 🖨️ 印刷モーダルの開閉
         function openPrintModal() {
             document.querySelector('input[name="printPattern"][value="both"]').checked = true;
             document.querySelector('input[name="redTarget"][value="none"]').checked = true;
+            document.getElementById('showWrongCheck').checked = true; // デフォルトはON
             document.getElementById('modalRedSheetOptions').style.display = 'block';
             document.getElementById('print-setting-modal').style.display = 'flex';
         }
@@ -238,11 +244,12 @@
             }
         }
 
-        // 🖨️ モーダル内で決定されたオプションで印刷を実行
         function executeCustomPrint() {
-            document.body.classList.remove('print-hide-en', 'print-hide-jp', 'print-red-en', 'print-red-jp');
-            const pattern = document.querySelector('input[name="printPattern"]:checked').value;
+            // クラスの全リセット
+            document.body.classList.remove('print-hide-en', 'print-hide-jp', 'print-red-en', 'print-red-jp', 'print-show-wrong');
             
+            // パターン・カラー制御
+            const pattern = document.querySelector('input[name="printPattern"]:checked').value;
             if (pattern === 'enOnly') {
                 document.body.classList.add('print-hide-jp');
             } else if (pattern === 'jpOnly') {
@@ -253,7 +260,13 @@
                 if (redTarget === 'jp') document.body.classList.add('print-red-jp');
             }
 
-            closePrintModal(); // ダイアログを開く前にモーダルを閉じる
+            // ⭐ ミス問題表示の判定
+            const isShowWrong = document.getElementById('showWrongCheck').checked;
+            if (isShowWrong) {
+                document.body.classList.add('print-show-wrong');
+            }
+
+            closePrintModal();
             window.print();
         }
 
